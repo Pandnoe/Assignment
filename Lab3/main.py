@@ -211,8 +211,9 @@ from streamlit_js_eval import (
     copy_to_clipboard,
     create_share_link,
 )
-from pages.report import reporting_page
-from pages.settings import settings_page
+from report import reporting_page
+from settings import settings_page
+from combinedmap import render_combined_map
 
 # Inject custom CSS
 # def local_css(file_name):
@@ -331,9 +332,9 @@ if st.session_state.logged_in:
     with tab_map:
         st.header("Map")
         # Render the map content
-        from map import render_map  # map.py contains the map rendering function
-        from pages.reportMap import displayMap
-        from combinedmap import render_combined_map
+        #from map import render_map  # map.py contains the map rendering function
+        #from pages.reportMap import displayMap
+        
         #render_map()
         #displayMap()
         render_combined_map()
