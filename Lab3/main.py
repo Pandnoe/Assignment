@@ -215,11 +215,11 @@ from pages.report import reporting_page
 from pages.settings import settings_page
 
 # Inject custom CSS
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+# def local_css(file_name):
+#     with open(file_name) as f:
+#         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-local_css("styles.css")
+# local_css("styles.css")
 
 # Initialize the database (creates the DB file and table if they don't exist)
 init_db()
