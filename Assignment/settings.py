@@ -1,15 +1,6 @@
 import streamlit as st
 from database import change_password
 
-# st.title("Settings")
-# new_password = st.text_input("New password", type="password")
-# if st.button("Change password"):
-#     username = st.session_state.username
-#     change_password(username, new_password)
-#     st.switch_page("main.py")
-# if st.button("Return to home"):
-#     st.switch_page("main.py")
-
 def settings_page():
     new_password = st.text_input("New password", type="password")
     confirm_password = st.text_input("Confirm password", type="password")
