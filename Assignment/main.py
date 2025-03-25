@@ -90,6 +90,7 @@ if not st.session_state.logged_in:
                     st.session_state.logged_in = True
                     st.session_state.username = reg_username
                     st.session_state.userId = reg_username
+                    st.session_state.is_admin = False
                     showProgressBar()
                     st.rerun()
                 else:
