@@ -1,339 +1,200 @@
-# import sqlite3
-
-# DB_NAME = "users.db"
-
-# def init_db():
-#     """Initialize the database and create the users table if it doesn't exist."""
-#     conn = sqlite3.connect(DB_NAME)
-#     c = conn.cursor()
-#     c.execute("""
-#         CREATE TABLE IF NOT EXISTS users (
-#             id INTEGER PRIMARY KEY AUTOINCREMENT,
-#             username TEXT UNIQUE NOT NULL,
-#             password TEXT NOT NULL
-#         )
-#     """)
-#     c.execute('''CREATE TABLE IF NOT EXISTS dengue_reports (
-#                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-#                     user_id INTEGER,
-#                     description TEXT,
-#                     report_type TEXT,
-#                     date TEXT,
-#                     FOREIGN KEY (user_id) REFERENCES users(id))''')
-#     conn.commit()
-#     conn.close()
-
-# def register_user(username, password):
-#     """Register a new user in the database."""
-#     conn = sqlite3.connect(DB_NAME)
-#     c = conn.cursor()
-#     try:
-#         c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-#         conn.commit()
-#         conn.close()
-#         return True, "Registration successful."
-#     except sqlite3.IntegrityError:
-#         conn.close()
-#         return False, "Username already exists!"
-
-# def login_user(username, password):
-#     """Check if the username/password combination exists."""
-#     conn = sqlite3.connect(DB_NAME)
-#     c = conn.cursor()
-#     c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
-#     user = c.fetchone()
-#     conn.close()
-#     return user
-
-# def change_password(username, new_password):
-#     """Change password for user"""
-#     conn = sqlite3.connect(DB_NAME)
-#     c = conn.cursor()
-#     c.execute("UPDATE users SET password = ? WHERE username = ?", (new_password, username))
-#     conn.commit()
-#     conn.close()
-#     return True
-
-# def addDengueReport(user_id, description, report_type):
-#     """Add Dengue report for user"""
-#     conn = sqlite3.connect(DB_NAME)
-#     c = conn.cursor()
-#     c.execute("INSERT INTO dengue_reports (user_id, description, report_type, date) VALUES (?, ?, ?, CURRENT_DATE)", (user_id, description,report_type))
-#     conn.commit()
-#     conn.close()
-
-# def showDengueReports():
-#     conn = sqlite3.connect(DB_NAME)
-#     c = conn.cursor()
-#     c.execute("SELECT * FROM dengue_reports")
-#     reports = c.fetchall()
-#     conn.close()
-#     for report in reports:
-#         print(report)
-
-
 import os
 import time
-from convert_data import convertData
+import gspread
+from google.oauth2.service_account import Credentials
 
+# Define the API scopes required for read and write operations.
+SCOPE = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 
-DB_FILE = "users.txt"
+# Load your service account credentials.
+SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON', 'service_account.json')
+creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPE)
+gc = gspread.authorize(creds)
+
+# Get the Google Sheet IDs from environment variables.
+USERS_SHEET_ID = os.environ.get("USERS_SHEET_ID", "1nyNOU4znrMNXdYwWoo2yKX9Qx7j81madJzMKaBM-UYU")
+REPORTS_SHEET_ID = os.environ.get("REPORTS_SHEET_ID", "1Iem_WqJFyIy6xOAwODCy5MuCge1w_kwyFT2h9pf_jYk")
+
+# Open the first worksheet from each Google Sheet.
+users_sheet = gc.open_by_key(USERS_SHEET_ID).sheet1
+reports_sheet = gc.open_by_key(REPORTS_SHEET_ID).sheet1
 
 def init_db():
-    """Initialize the database by creating the users file if it doesn't exist."""
-    if not os.path.exists(DB_FILE):
-        with open(DB_FILE, 'w') as f:
-            f.write("id,username,password\n")
+    """
+    Initialize the Google Sheets "database" by ensuring each sheet has the correct headers.
+    If the header row does not match, the sheet is cleared and the headers are set.
+    """
+    # Expected headers for the users sheet.
+    users_headers = ["id", "username", "password"]
+    current_users_headers = users_sheet.row_values(1)
+    if current_users_headers != users_headers:
+        users_sheet.clear()
+        users_sheet.append_row(users_headers)
+    
+    # Expected headers for the dengue reports sheet.
+    reports_headers = [
+        "report_id", "user_id", "username", "report_type", "date",
+        "latitude", "longitude", "symptom", "severity", "hotspot_type", "image_filename"
+    ]
+    current_reports_headers = reports_sheet.row_values(1)
+    if current_reports_headers != reports_headers:
+        reports_sheet.clear()
+        reports_sheet.append_row(reports_headers)
 
-# def register_user(username, password):
-#     """Register a new user in the database."""
-#     with open(DB_FILE, 'r') as f:
-#         lines = f.readlines()
-#         for line in lines[1:]:
-#             user_id, user_name, user_password = line.strip().split(',')
-#             if user_name == username:
-#                 return False, "Username already exists!"
-    
-#     # Determine a unique new user id by finding the maximum existing id
-#     new_id = 1
-#     if len(lines) > 1:
-#         try:
-#             existing_ids = [int(line.strip().split(',')[0]) for line in lines[1:] if line.strip()]
-#             if existing_ids:
-#                 new_id = max(existing_ids) + 1
-#         except Exception as e:
-#             new_id = len(lines)
-    
-#     with open(DB_FILE, 'a') as f:
-#         f.write(f"{new_id},{username},{password}\n")
-#     return True, "Registration successful, logging in."
+def get_next_user_id():
+    """
+    Calculate the next available user id by reading the current rows in the users sheet.
+    """
+    users = users_sheet.get_all_values()
+    if len(users) < 2:
+        return 1
+    # Extract numeric IDs from the first column (skipping the header).
+    ids = [int(row[0]) for row in users[1:] if row[0].isdigit()]
+    return max(ids) + 1 if ids else 1
 
 def register_user(username, password):
-    with open(DB_FILE, 'r') as f:
-        lines = f.readlines()
-        for line in lines[1:]:
-            parts = line.strip().split(',')
-            if len(parts) != 3:
-                continue  # Skip malformed lines
-            _, user_name, _ = parts
-            if user_name == username:
-                return False, "Username already exists!"
-
-    # Calculate new ID safely
-    existing_ids = [int(parts[0]) for parts in (line.strip().split(',') for line in lines[1:])
-                    if len(parts) == 3 and parts[0].isdigit()]
-    new_id = max(existing_ids, default=0) + 1
-
-    with open(DB_FILE, 'a') as f:
-        f.write(f"{new_id},{username},{password}\n")
+    """
+    Register a new user in the users sheet.
+    Returns a tuple (success: bool, message: str).
+    """
+    users = users_sheet.get_all_values()
+    for row in users[1:]:
+        if row[1] == username:
+            return False, "Username already exists!"
+    new_id = get_next_user_id()
+    users_sheet.append_row([new_id, username, password])
     return True, "Registration successful, logging in."
 
-
-
-# def login_user(username, password):
-#     """Check if the username/password combination exists."""
-#     with open(DB_FILE, 'r') as f:
-#         lines = f.readlines()
-#         for line in lines[1:]:
-#             user_id, user_name, user_password = line.strip().split(',')
-#             if user_name == username and user_password == password:
-#                 return (user_id, username)
-#     return None
-
 def login_user(username, password):
-    with open(DB_FILE, 'r') as f:
-        lines = f.readlines()
-        for line in lines[1:]:
-            parts = line.strip().split(',')
-            if len(parts) != 3:
-                continue  # Skip malformed lines
-            user_id, user_name, user_password = parts
-            if user_name == username and user_password == password:
-                return (user_id, username)
+    """
+    Check if the username/password combination exists in the users sheet.
+    Returns a tuple (user_id, username) if found, otherwise None.
+    """
+    users = users_sheet.get_all_values()
+    for row in users[1:]:
+        if row[1] == username and row[2] == password:
+            return (row[0], username)
     return None
 
-
 def change_password(username, new_password):
-    """Change password for user only if the new password is different from the current one."""
-    lines = []
-    with open(DB_FILE, 'r') as f:
-        lines = f.readlines()
-    
-    # The first line is the header
-    header = lines[0]
-    data_lines = lines[1:]
-    
-    old_password = None
-    for line in data_lines:
-        user_id, user_name, user_password = line.strip().split(',')
-        if user_name == username:
-            old_password = user_password
-            break
-
-    # If the new password is the same as the current password, do not update
-    if old_password is not None and new_password == old_password:
-        return False
-
-    # Write the updated data back to the file
-    with open(DB_FILE, 'w') as f:
-        f.write(header)
-        for line in data_lines:
-            user_id, user_name, user_password = line.strip().split(',')
-            if user_name == username:
-                f.write(f"{user_id},{username},{new_password}\n")
-            else:
-                f.write(line + "\n")
-    return True
+    """
+    Change the password for a user if the new password differs from the current one.
+    Returns True if the password was changed, otherwise False.
+    """
+    users = users_sheet.get_all_values()
+    for i, row in enumerate(users[1:], start=2):  # Data starts on row 2 (after header)
+        if row[1] == username:
+            if row[2] == new_password:
+                return False
+            users_sheet.update_cell(i, 3, new_password)  # Column 3 holds the password.
+            return True
+    return False
 
 def get_all_users():
-    """Return a list of all users as dictionaries from the users.txt file."""
-    if not os.path.exists(DB_FILE):
+    """
+    Retrieve all users from the users sheet as a list of dictionaries.
+    """
+    users = users_sheet.get_all_values()
+    if len(users) < 2:
         return []
-    with open(DB_FILE, 'r') as f:
-        lines = f.readlines()
-    if len(lines) < 2:
-        return []
-    header = lines[0].strip().split(',')
-    users = []
-    for line in lines[1:]:
-        fields = line.strip().split(',')
-        if len(fields) >= len(header):
-            user = dict(zip(header, fields))
-            users.append(user)
-    return users
+    headers = users[0]
+    result = []
+    for row in users[1:]:
+        # Pad missing fields if necessary.
+        if len(row) < len(headers):
+            row += [""] * (len(headers) - len(row))
+        result.append(dict(zip(headers, row)))
+    return result
 
 def remove_user(user_id):
-    """Remove the user with the given user_id from the users.txt file."""
-    if not os.path.exists(DB_FILE):
-        return
-    with open(DB_FILE, 'r') as f:
-        lines = f.readlines()
-    header = lines[0]
-    new_lines = [header]
-    for line in lines[1:]:
-        fields = line.strip().split(',')
-        if fields[0] != str(user_id):
-            # Preserve the original newline if present.
-            new_lines.append(line if line.endswith("\n") else line + "\n")
-    with open(DB_FILE, 'w') as f:
-        f.writelines(new_lines)
+    """
+    Remove the user with the specified user id from the users sheet.
+    """
+    users = users_sheet.get_all_values()
+    for i, row in enumerate(users[1:], start=2):
+        if row[0] == str(user_id):
+            delete_row_alternative(users_sheet, i)
+            break
 
 
+def get_next_report_id():
+    """
+    Calculate the next available report id from the dengue reports sheet.
+    """
+    reports = reports_sheet.get_all_values()
+    if len(reports) < 2:
+        return 1
+    ids = [int(row[0]) for row in reports[1:] if row[0].isdigit()]
+    return max(ids) + 1 if ids else 1
 
 def addDengueReport(user_id, username, report_type, latitude, longitude, symptom=None, severity=None, hotspot_type=None):
-
-    #For a 'Report person' type, provide symptom and severity.
-    #For a 'Report Location' type, provide hotspot_type.
-
-    REPORT_FILE = "dengue_reports.txt"
-    
-    # Create the report file with a header if it doesn't exist
-    if not os.path.exists(REPORT_FILE):
-        with open(REPORT_FILE, 'w') as f:
-            f.write("report_id,user_id,username,report_type,date,latitude,longitude,symptom,severity,hotspot_type\n")
-    
-    # Read all lines to determine the next report_id
-    with open(REPORT_FILE, 'r') as f:
-        lines = f.readlines()
-    
-    report_id = len(lines)  # header counts as first line; adjust if needed
-    
-    # Replace None with empty strings for fields not applicable to the report type
-    symptom = symptom if symptom is not None else ""
-    severity = severity if severity is not None else ""
-    hotspot_type = hotspot_type if hotspot_type is not None else ""
-    
-    with open(REPORT_FILE, 'a') as f:
-        f.write(f"{report_id},{user_id},{username},{report_type},{time.strftime('%Y-%m-%d')},{latitude},{longitude},{symptom},{severity},{hotspot_type}\n")
-
+    """
+    Add a new dengue report to the reports sheet.
+    Returns the report id of the inserted report.
+    """
+    report_id = get_next_report_id()
+    date = time.strftime('%Y-%m-%d')
+    symptom = symptom or ""
+    severity = severity or ""
+    hotspot_type = hotspot_type or ""
+    reports_sheet.append_row([
+        report_id, user_id, username, report_type, date,
+        latitude, longitude, symptom, severity, hotspot_type, ""
+    ])
     return report_id
 
-
 def showDengueReports():
-    REPORT_FILE = "dengue_reports.txt"
-    if not os.path.exists(REPORT_FILE):
-        print("No reports found.")
-        return
-    
-    with open(REPORT_FILE, 'r') as f:
-        lines = f.readlines()
-    
-    if len(lines) < 2:
-        return
-    header = lines[0].strip().split(',')
-    data = []
-
-    for line in lines[1:]:
-        values = line.strip().split(',')
-        row = dict(zip(header,values))
-        data.append(row)  
-        
-    return data
+    """
+    Retrieve all dengue reports from the reports sheet as a list of dictionaries.
+    """
+    reports = reports_sheet.get_all_values()
+    if len(reports) < 2:
+        return []
+    headers = reports[0]
+    result = []
+    for row in reports[1:]:
+        if len(row) < len(headers):
+            row += [""] * (len(headers) - len(row))
+        result.append(dict(zip(headers, row)))
+    return result
 
 def remove_report(report_id):
     """
-    Remove a dengue report with the specified report_id from the dengue_reports.txt file.
+    Remove a dengue report from the reports sheet by its report id.
     """
-    REPORT_FILE = "dengue_reports.txt"
-    if not os.path.exists(REPORT_FILE):
-        return
+    reports = reports_sheet.get_all_values()
+    for i, row in enumerate(reports[1:], start=2):
+        if row[0] == str(report_id):
+            delete_row_alternative(reports_sheet, i)
+            break
 
-    with open(REPORT_FILE, "r") as f:
-        lines = f.readlines()
-
-    header = lines[0]
-    new_lines = [header]
-    for line in lines[1:]:
-        # Assuming CSV fields: id,user_id,report_type,date,latitude,longitude
-        fields = line.strip().split(',')
-        if fields[0] != str(report_id):
-            new_lines.append(line)
-
-    with open(REPORT_FILE, "w") as f:
-        f.writelines(new_lines)
-
-import os
 
 def update_report_image(report_id, image_filename):
     """
-    Update the report with the specified report_id in the dengue_reports.txt file
-    so that its 'image_filename' field is set to image_filename.
+    Update the image_filename field for a specified dengue report.
     """
-    REPORT_FILE = "dengue_reports.txt"
-    if not os.path.exists(REPORT_FILE):
-        return
+    reports = reports_sheet.get_all_values()
+    for i, row in enumerate(reports[1:], start=2):
+        if row[0] == str(report_id):
+            # Column 11 holds the image_filename.
+            reports_sheet.update_cell(i, 11, image_filename)
+            break
 
-    # Read all lines from the file.
-    with open(REPORT_FILE, "r") as f:
-        lines = f.readlines()
-
-    # Process the header.
-    header = lines[0].strip().split(',')
-    # If the header doesn't have "image_filename", add it.
-    if "image_filename" not in header:
-        header.append("image_filename")
-        new_lines = [','.join(header) + "\n"]
-        # Add an empty image_filename field for existing rows.
-        for line in lines[1:]:
-            new_lines.append(line.strip() + ",\n")
-        lines = new_lines
-    # Now, update the report row matching report_id.
-    updated_lines = []
-    for line in lines:
-        # Leave the header unchanged.
-        if line.startswith("id,"):
-            updated_lines.append(line)
-            continue
-        fields = line.strip().split(',')
-        if fields[0] == str(report_id):
-            # Ensure the row has enough columns.
-            if len(fields) < len(header):
-                fields.extend([""] * (len(header) - len(fields)))
-            # Update the last column (image_filename) with the new filename.
-            fields[-1] = image_filename
-            updated_lines.append(','.join(fields) + "\n")
-        else:
-            updated_lines.append(line)
-
-    with open(REPORT_FILE, "w") as f:
-        f.writelines(updated_lines)
+def delete_row_alternative(worksheet, row_index):
+    # Build the request body to delete a row.
+    body = {
+        "requests": [{
+            "deleteDimension": {
+                "range": {
+                    "sheetId": worksheet.id,
+                    "dimension": "ROWS",
+                    "startIndex": row_index - 1,  # 0-indexed, so subtract 1.
+                    "endIndex": row_index         # endIndex is exclusive.
+                }
+            }
+        }]
+    }
+    worksheet.spreadsheet.batch_update(body)
