@@ -13,7 +13,7 @@ SCOPE = [
 # Load your service account credentials.
 #SERVICE_ACCOUNT_FILE = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON', 'service_account.json')
 #creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPE)
-creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=SCOPE)
+creds = Credentials.from_service_account_info(st.secrets["service_account"], scopes=SCOPE)
 
 gc = gspread.authorize(creds)
 
