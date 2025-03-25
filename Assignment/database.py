@@ -85,38 +85,73 @@ def init_db():
         with open(DB_FILE, 'w') as f:
             f.write("id,username,password\n")
 
+# def register_user(username, password):
+#     """Register a new user in the database."""
+#     with open(DB_FILE, 'r') as f:
+#         lines = f.readlines()
+#         for line in lines[1:]:
+#             user_id, user_name, user_password = line.strip().split(',')
+#             if user_name == username:
+#                 return False, "Username already exists!"
+    
+#     # Determine a unique new user id by finding the maximum existing id
+#     new_id = 1
+#     if len(lines) > 1:
+#         try:
+#             existing_ids = [int(line.strip().split(',')[0]) for line in lines[1:] if line.strip()]
+#             if existing_ids:
+#                 new_id = max(existing_ids) + 1
+#         except Exception as e:
+#             new_id = len(lines)
+    
+#     with open(DB_FILE, 'a') as f:
+#         f.write(f"{new_id},{username},{password}\n")
+#     return True, "Registration successful, logging in."
+
 def register_user(username, password):
-    """Register a new user in the database."""
     with open(DB_FILE, 'r') as f:
         lines = f.readlines()
         for line in lines[1:]:
-            user_id, user_name, user_password = line.strip().split(',')
+            parts = line.strip().split(',')
+            if len(parts) != 3:
+                continue  # Skip malformed lines
+            _, user_name, _ = parts
             if user_name == username:
                 return False, "Username already exists!"
-    
-    # Determine a unique new user id by finding the maximum existing id
-    new_id = 1
-    if len(lines) > 1:
-        try:
-            existing_ids = [int(line.strip().split(',')[0]) for line in lines[1:] if line.strip()]
-            if existing_ids:
-                new_id = max(existing_ids) + 1
-        except Exception as e:
-            new_id = len(lines)
-    
+
+    # Calculate new ID safely
+    existing_ids = [int(parts[0]) for parts in (line.strip().split(',') for line in lines[1:])
+                    if len(parts) == 3 and parts[0].isdigit()]
+    new_id = max(existing_ids, default=0) + 1
+
     with open(DB_FILE, 'a') as f:
         f.write(f"{new_id},{username},{password}\n")
     return True, "Registration successful, logging in."
 
+
+
+# def login_user(username, password):
+#     """Check if the username/password combination exists."""
+#     with open(DB_FILE, 'r') as f:
+#         lines = f.readlines()
+#         for line in lines[1:]:
+#             user_id, user_name, user_password = line.strip().split(',')
+#             if user_name == username and user_password == password:
+#                 return (user_id, username)
+#     return None
+
 def login_user(username, password):
-    """Check if the username/password combination exists."""
     with open(DB_FILE, 'r') as f:
         lines = f.readlines()
         for line in lines[1:]:
-            user_id, user_name, user_password = line.strip().split(',')
+            parts = line.strip().split(',')
+            if len(parts) != 3:
+                continue  # Skip malformed lines
+            user_id, user_name, user_password = parts
             if user_name == username and user_password == password:
                 return (user_id, username)
     return None
+
 
 def change_password(username, new_password):
     """Change password for user only if the new password is different from the current one."""
