@@ -47,7 +47,7 @@ if st.session_state.latitude is None or st.session_state.longitude is None:
 
 # If user is not logged in, show login/registration forms
 if not st.session_state.logged_in:
-    st.title("User Login / Registration1")
+    st.title("User Login / Registration")
     option = st.radio("Select an option", ["Login", "Register", "Forgot Password"])
 
     if option == "Login":
