@@ -47,7 +47,7 @@ if st.session_state.latitude is None or st.session_state.longitude is None:
 
 # If user is not logged in, show login/registration forms
 if not st.session_state.logged_in:
-    st.title("User Login / Registration")
+    st.title("User Login / Registration1")
     option = st.radio("Select an option", ["Login", "Register", "Forgot Password"])
 
     if option == "Login":
@@ -75,7 +75,7 @@ if not st.session_state.logged_in:
                 else:
                     st.error("Invalid credentials!")
 
-    elif option == "Register1":
+    elif option == "Register":
         st.title("User Registration")
         reg_username = st.text_input("Choose a Username", key="reg_username")
         reg_password = st.text_input("Choose a Password", type="password", key="reg_password")
