@@ -83,9 +83,9 @@ if not st.session_state.logged_in:
         if st.button("Register"):
             if reg_password != reg_password_confirm:
                 st.error("Passwords do not match!")
-            elif reg_password == "None":
+            elif not reg_password:
                 st.error("Enter a password!")
-            elif reg_username == "None":
+            elif not reg_username:
                 st.error("Enter a username!")
             else:
                 success, message = register_user(reg_username, reg_password)
