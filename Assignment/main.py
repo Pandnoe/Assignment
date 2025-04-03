@@ -75,7 +75,7 @@ if not st.session_state.logged_in:
                 else:
                     st.error("Invalid credentials!")
 
-    elif option == "Register":
+    elif option == "Register1":
         st.title("User Registration")
         reg_username = st.text_input("Choose a Username", key="reg_username")
         reg_password = st.text_input("Choose a Password", type="password", key="reg_password")
