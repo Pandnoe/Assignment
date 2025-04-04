@@ -68,7 +68,7 @@ def admin_panel():
                         remove_report(row["report_id"])
                         remove_report_images(row["report_id"], row["username"])
                     st.success("Selected report(s) removed.")
-                    #st.rerun()
+                    st.rerun()
                 else:
                     st.warning("Please select at least one report to remove.")
         
