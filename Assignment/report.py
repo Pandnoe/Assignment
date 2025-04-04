@@ -29,7 +29,7 @@ def reporting_page():
         submitted = form.form_submit_button("Submit")
         
         if submitted:
-            if postal_code:
+            if len(postal_code) == 6:
                 coordinates = convertToLatLon(postal_code)
                 # Pass symptom and severity; hotspot_type left as default (empty)
                 report_id = addDengueReport(
@@ -44,7 +44,7 @@ def reporting_page():
                 showProgressBar()
                 st.success("Report submitted")
             else:
-                st.error("Please enter a postal code")
+                st.error("Please enter a valid postal code")
                 
     elif report_type == "Report Location":
         form = st.form("Report Location", clear_on_submit=True)
@@ -63,7 +63,7 @@ def reporting_page():
         submitted = form.form_submit_button("Submit")
         
         if submitted:
-            if postal_code:
+            if len(postal_code) == 6:
                 coordinates = convertToLatLon(postal_code)
                 # Pass hotspot_type; symptom and severity will remain empty
                 report_id = addDengueReport(
@@ -80,7 +80,7 @@ def reporting_page():
                 showProgressBar()
                 st.success("Report submitted")
             else:
-                st.error("Please enter a postal code")
+                st.error("Please enter a valid postal code")
 
 def save_image(picture, username, report_id):
     curr_dir = Path.cwd()
